@@ -1,6 +1,8 @@
-import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import User from "../models/user.model.js";
+import FoodPartner from "../models/foodPartner.model.js";
+
 
 const registerUser = async (req, res) => {
     try {
@@ -71,4 +73,66 @@ const logoutUser = (req, res) => {
     res.status(200).json({ message: "Logout successful" });
 }
 
-export { registerUser, loginUser, logoutUser };
+const foodPartnerResgister = async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+        const existingPartner = await FoodPartner.findOne({ email });
+        if (existingPartner) {
+            console.log("foodPartnerResgister: existing partner found, sending 400", { email });
+            return res.status(400).json({ message: "Food Partner already exists" });
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newPartner = new FoodPartner({ name, email, password: hashedPassword });
+
+        const token = jwt.sign({id:newPartner._id}, process.env.JWT_SECRET, {expiresIn:'1d'});
+
+        res.cookie("token", token);     
+
+
+        console.log("foodPartnerResgister: creating new partner", { email });
+        await newPartner.save();
+        console.log("foodPartnerResgister: new partner saved, sending 201", { id: newPartner._id });
+        res.status(201).json({ message: "Food Partner registered successfully",
+            partner: {
+                id: newPartner._id,
+                name: newPartner.name,
+                email: newPartner.email
+            }
+         });
+    } catch (error) {
+        console.error("foodPartnerResgister: caught error", error);
+        res.status(500).json({ message: "Server error" });
+    }
+}
+
+const foodPartnerLogin = async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+        const partner = await FoodPartner.findOne({ email });
+        if (!partner) {
+            console.log("foodPartnerLogin: partner not found, sending 400", { email });
+            return res.status(400).json({ message: "Invalid credentials" });
+        }
+        const isMatch = await bcrypt.compare(password, partner.password);
+        if (!isMatch) {
+            console.log("foodPartnerLogin: password mismatch, sending 400", { email });
+            return res.status(400).json({ message: "Invalid credentials" });
+        }
+        const token = jwt.sign({id:partner._id}, process.env.JWT_SECRET, {expiresIn:'1d'});
+
+        res.cookie("token", token);
+        res.status(200).json({ message: "Login successful",
+            partner: {
+                id: partner._id,
+                name: partner.name,
+                email: partner.email
+            }
+        });
+    } catch (error) {
+        console.error("foodPartnerLogin: caught error", error);
+        res.status(500).json({ message: "Server error" });
+    }
+}
+
+export { registerUser, loginUser, logoutUser, foodPartnerResgister, foodPartnerLogin };
