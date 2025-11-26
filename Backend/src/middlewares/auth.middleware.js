@@ -1,14 +1,15 @@
-import foodModel from "../models/food.model.js";
+import FoodPartner from "../models/foodpartner.model.js";
 import jwt from "jsonwebtoken";
 
 const authenticateFoodPartner = async (req, res, next) => {
     try {
         const token = req.cookies.token;
         if (!token) {
-            return res.status(401).json({ message: "unauthorized access" });
+            return res.status(401).json({ message: "no token provided" });
         }
         const decoded = jwt.verify(token,process.env.JWT_SECRET);
-        const foodPartner = await foodModel.findById(decoded.id);
+        // console.log("authenticateFoodPartner: decoded token", decoded);
+        const foodPartner = await FoodPartner.findById(decoded.id);
         if (!foodPartner) {
             return res.status(401).json({ message: "unauthorized access" });
         }
@@ -16,7 +17,7 @@ const authenticateFoodPartner = async (req, res, next) => {
         next();
     } catch (error) {
         console.error("authenticateFoodPartner: caught error", error);
-        res.status(401).json({ message: "unauthorized access" });       
+        res.status(401).json({ message: "err" });       
     }
 }
 

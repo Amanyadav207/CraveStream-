@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
-import FoodPartner from "../models/foodPartner.model.js";
+import FoodPartner from "../models/foodpartner.model.js";
 
 
 const registerUser = async (req, res) => {
@@ -87,6 +87,8 @@ const foodPartnerResgister = async (req, res) => {
         const token = jwt.sign({id:newPartner._id}, process.env.JWT_SECRET, {expiresIn:'1d'});
 
         res.cookie("token", token);     
+        console.log(token);
+        
 
 
         console.log("foodPartnerResgister: creating new partner", { email });

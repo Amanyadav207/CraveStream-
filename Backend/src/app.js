@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use("/api", authRoutes);
-app.use("/api", foodRoutes);
+app.use("/api/food", foodRoutes);
 // app.use(authenticateFoodPartner);
 
 
