@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+    --color-primary: #ff5200;
+    --color-primary-hover: #e04800;
+    --color-dark: #121212;
+    --color-card: #1e1e1e;
+
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+    --animate-slide-in: slide-in 0.3s ease-out;
+
+    @keyframes slide-in {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+}
+
+/* Global Styles */
+body {
+    background-color: var(--color-dark);
+    color: #ffffff;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    background-image:
+        radial-gradient(circle at 15% 50%, rgba(255, 82, 0, 0.08), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.05), transparent 25%);
+    min-height: 100vh;
+}
+
+/* Premium Glassmorphism Utilities */
+.glass {
+    background: rgba(18, 18, 18, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+    background: rgba(30, 30, 30, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.input-premium {
+    background: rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+    transition: all 0.3s ease;
+}
+
+.input-premium:focus {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 2px rgba(255, 82, 0, 0.2);
+    background: rgba(0, 0, 0, 0.5) !important;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--color-primary), #ff7b00);
+    color: white;
+    box-shadow: 0 4px 15px rgba(255, 82, 0, 0.3);
+    border: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 82, 0, 0.4);
+    filter: brightness(1.1);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
