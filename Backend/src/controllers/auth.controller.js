@@ -4,6 +4,15 @@ import User from "../models/user.model.js";
 import FoodPartner from "../models/foodpartner.model.js";
 
 
+
+const isProduction = process.env.NODE_ENV === 'production';
+const cookieOptions = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: 24 * 60 * 60 * 1000
+};
+
 const registerUser = async (req, res) => {
     try {
         const { name, email, password } = req.body;
@@ -12,25 +21,25 @@ const registerUser = async (req, res) => {
             console.log("registerUser: existing user found, sending 400", { email });
             return res.status(400).json({ message: "User already exists" });
         }
-        
+
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ name, email, password: hashedPassword });
 
-        const token = jwt.sign({id:newUser._id}, process.env.JWT_SECRET, {expiresIn:'1d'});
+        const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-        res.cookie("token", token);     
-
+        res.cookie("token", token, cookieOptions);
 
         console.log("registerUser: creating new user", { email });
         await newUser.save();
         console.log("registerUser: new user saved, sending 201", { id: newUser._id });
-        res.status(201).json({ message: "User registered successfully",
+        res.status(201).json({
+            message: "User registered successfully",
             user: {
                 id: newUser._id,
                 name: newUser.name,
                 email: newUser.email
             }
-         });
+        });
     } catch (error) {
         console.error("registerUser: caught error", error);
         res.status(500).json({ message: "Server error" });
@@ -52,10 +61,11 @@ const loginUser = async (req, res) => {
             return res.status(400).json({ message: "Invalid credentials" });
         }
 
-        const token = jwt.sign({id:user._id}, process.env.JWT_SECRET, {expiresIn:'1d'});
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-        res.cookie("token", token);
-        res.status(200).json({ message: "Login successful",
+        res.cookie("token", token, cookieOptions);
+        res.status(200).json({
+            message: "Login successful",
             user: {
                 id: user._id,
                 name: user.name,
@@ -69,7 +79,7 @@ const loginUser = async (req, res) => {
 }
 
 const logoutUser = (req, res) => {
-    res.clearCookie("token");
+    res.clearCookie("token", cookieOptions);
     res.status(200).json({ message: "Logout successful" });
 }
 
@@ -84,23 +94,21 @@ const foodPartnerResgister = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const newPartner = new FoodPartner({ name, email, password: hashedPassword });
 
-        const token = jwt.sign({id:newPartner._id}, process.env.JWT_SECRET, {expiresIn:'1d'});
+        const token = jwt.sign({ id: newPartner._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-        res.cookie("token", token);     
-        console.log(token);
-        
-
+        res.cookie("token", token, cookieOptions);
 
         console.log("foodPartnerResgister: creating new partner", { email });
         await newPartner.save();
         console.log("foodPartnerResgister: new partner saved, sending 201", { id: newPartner._id });
-        res.status(201).json({ message: "Food Partner registered successfully",
+        res.status(201).json({
+            message: "Food Partner registered successfully",
             partner: {
                 id: newPartner._id,
                 name: newPartner.name,
                 email: newPartner.email
             }
-         });
+        });
     } catch (error) {
         console.error("foodPartnerResgister: caught error", error);
         res.status(500).json({ message: "Server error" });
@@ -121,10 +129,11 @@ const foodPartnerLogin = async (req, res) => {
             console.log("foodPartnerLogin: password mismatch, sending 400", { email });
             return res.status(400).json({ message: "Invalid credentials" });
         }
-        const token = jwt.sign({id:partner._id}, process.env.JWT_SECRET, {expiresIn:'1d'});
+        const token = jwt.sign({ id: partner._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-        res.cookie("token", token);
-        res.status(200).json({ message: "Login successful",
+        res.cookie("token", token, cookieOptions);
+        res.status(200).json({
+            message: "Login successful",
             partner: {
                 id: partner._id,
                 name: partner.name,
