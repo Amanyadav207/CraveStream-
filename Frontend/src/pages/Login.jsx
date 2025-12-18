@@ -16,9 +16,10 @@ const Login = () => {
         setError('');
         const role = isPartner ? 'partner' : 'user';
         const result = await login(email, password, role);
+        console.log(result);
         
         if (result.success) {
-            navigate(isPartner ? '/partner/dashboard' : '/');
+            navigate(isPartner ? '/partner/dashboard' : '/feed');
         } else {
             setError(result.message);
         }

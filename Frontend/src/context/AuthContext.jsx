@@ -23,8 +23,10 @@ export const AuthProvider = ({ children }) => {
             const endpoint = role === 'partner' ? '/foodpartner/login' : '/user/login';
             const { data } = await api.post(endpoint, { email, password });
             
-            // Backend should return user info. For now, we mock/adapt:
-            const userData = { ...data, role };
+            // Handle different response structures for user vs partner
+            const userPayload = data.user || data.partner;
+            const userData = { ...userPayload, role };
+            
             setUser(userData);
             localStorage.setItem('user', JSON.stringify(userData));
             return { success: true };
@@ -40,7 +42,15 @@ export const AuthProvider = ({ children }) => {
     const register = async (name, email, password, role) => {
         try {
             const endpoint = role === 'partner' ? '/foodpartner/register' : '/user/register';
-            await api.post(endpoint, { name, email, password });
+            const { data } = await api.post(endpoint, { name, email, password });
+            
+            // Handle different response structures for user vs partner
+            const userPayload = data.user || data.partner;
+            const userData = { ...userPayload, role };
+            
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+            
             return { success: true };
         } catch (error) {
            console.error("Register failed", error);

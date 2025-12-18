@@ -3,8 +3,8 @@ import { uploadFile } from "../services/storage.service.js";
 import { v4 as UUID } from "uuid";
 
 const createFood = async (req, res) => {
-   
-    const fileUploadedResult=await uploadFile(req.file.buffer,UUID());
+
+    const fileUploadedResult = await uploadFile(req.file.buffer, UUID());
 
     const fooditem = new foodModel({
         name: req.body.name,
@@ -26,7 +26,7 @@ const createFood = async (req, res) => {
         });
     }
 
-    
+
 }
 
 const getFoodItems = async (req, res) => {
@@ -36,12 +36,25 @@ const getFoodItems = async (req, res) => {
             message: "Food items retrieved successfully",
             foodItems
         });
-        
+
     } catch (error) {
-        
+
     }
 }
 
 
 
-export { createFood, getFoodItems };
+const getPartnerFoodItems = async (req, res) => {
+    try {
+        const foodItems = await foodModel.find({ foodPartner: req.foodPartner._id });
+        res.status(200).json({
+            message: "Partner food items retrieved successfully",
+            foodItems
+        });
+    } catch (error) {
+        console.error("getPartnerFoodItems error:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+}
+
+export { createFood, getFoodItems, getPartnerFoodItems };

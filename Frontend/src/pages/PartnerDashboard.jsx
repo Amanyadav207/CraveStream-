@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, DollarSign, FileText, Video, Plus } from 'lucide-react';
+import { Upload, DollarSign, FileText, Video, Plus, Eye, X, Heart, MessageCircle, Share2 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -65,6 +65,32 @@ const PartnerDashboard = () => {
             setLoading(false);
         }
     };
+
+    const [foodItems, setFoodItems] = useState([]);
+    const [loadingItems, setLoadingItems] = useState(true);
+    const [previewItem, setPreviewItem] = useState(null);
+
+    const fetchItems = async () => {
+        try {
+            const { data } = await api.get('/food/partner');
+            setFoodItems(data.foodItems);
+        } catch (err) {
+            console.error("Failed to fetch items", err);
+        } finally {
+            setLoadingItems(false);
+        }
+    };
+
+    React.useEffect(() => {
+        fetchItems();
+    }, []);
+
+    // Refresh list after successful upload
+    React.useEffect(() => {
+        if (success) {
+            fetchItems();
+        }
+    }, [success]);
 
     return (
         <div className="max-w-4xl mx-auto pb-20">
@@ -180,6 +206,108 @@ const PartnerDashboard = () => {
                     </button>
                 </form>
             </div>
+
+            {/* Uploaded Items Section */}
+            <div className="glass-card p-8 rounded-2xl mt-8">
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <Video className="w-6 h-6 text-primary" />
+                    My Uploaded Items
+                </h2>
+                
+                {loadingItems ? (
+                    <p className="text-gray-400">Loading your items...</p>
+                ) : foodItems.length === 0 ? (
+                    <p className="text-gray-400">No items uploaded yet.</p>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {foodItems.map((item) => (
+                            <div key={item._id} className="bg-white/5 rounded-xl overflow-hidden hover:bg-white/10 transition-colors border border-white/10 group relative">
+                                <div className="aspect-video bg-black relative">
+                                    <video 
+                                        src={item.video} 
+                                        className="w-full h-full object-cover"
+                                    />
+                                    {/* Overlay for Preview Button */}
+                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <button 
+                                            onClick={() => setPreviewItem(item)}
+                                            className="bg-primary text-white px-6 py-2 rounded-full font-bold flex items-center gap-2 hover:scale-105 transition-transform"
+                                        >
+                                            <Eye className="w-5 h-5" /> Preview Reel
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="p-4">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h3 className="font-bold text-lg">{item.name}</h3>
+                                        <span className="text-primary font-bold">${item.price}</span>
+                                    </div>
+                                    <p className="text-gray-400 text-sm line-clamp-2">{item.description}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Reel Preview Modal */}
+            {previewItem && (
+                <div className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <button 
+                        onClick={() => setPreviewItem(null)}
+                        className="absolute top-4 right-4 text-white hover:text-primary z-50 bg-black/50 p-2 rounded-full"
+                    >
+                        <X className="w-8 h-8" />
+                    </button>
+                    
+                    <div className="relative w-full max-w-md h-[80vh] bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+                         <video 
+                            src={previewItem.video}
+                            className="w-full h-full object-cover"
+                            autoPlay
+                            controls
+                            loop
+                        />
+                        
+                        {/* Overlay Info */}
+                        <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black via-black/50 to-transparent">
+                            <h3 className="text-2xl font-bold text-white mb-1">{previewItem.name}</h3>
+                            <p className="text-gray-200 text-sm line-clamp-3 mb-4">{previewItem.description}</p>
+                            
+                            <div className="flex items-center justify-between">
+                                 <span className="text-primary font-bold text-2xl flex items-center">
+                                    <DollarSign className="w-6 h-6" /> {previewItem.price}
+                                 </span>
+                                 <button className="bg-white/20 text-white px-6 py-2 rounded-full font-bold backdrop-blur-md">
+                                     View Analytics
+                                 </button>
+                            </div>
+                        </div>
+
+                         {/* Mock Actions Sidebar */}
+                        <div className="absolute right-4 bottom-24 flex flex-col gap-6 items-center">
+                            <div className="flex flex-col items-center gap-1 text-white">
+                                <div className="bg-black/40 p-3 rounded-full backdrop-blur-sm">
+                                    <Heart className="w-6 h-6" />
+                                </div>
+                                <span className="text-xs font-bold">0</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 text-white">
+                                <div className="bg-black/40 p-3 rounded-full backdrop-blur-sm">
+                                    <MessageCircle className="w-6 h-6" />
+                                </div>
+                                <span className="text-xs font-bold">0</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 text-white">
+                                <div className="bg-black/40 p-3 rounded-full backdrop-blur-sm">
+                                    <Share2 className="w-6 h-6" />
+                                </div>
+                                <span className="text-xs font-bold">Share</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -19,7 +19,11 @@ const Signup = () => {
         const result = await register(name, email, password, role);
         
         if (result.success) {
-            navigate('/login');
+            if (role === 'partner') {
+                navigate('/partner/dashboard');
+            } else {
+                navigate('/feed');
+            }
         } else {
             setError(result.message);
         }
