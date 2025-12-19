@@ -47,11 +47,10 @@ const PartnerDashboard = () => {
             // Wait, food.model.js says 'foodPartner' required.
             // food.controller.js usually does: req.body.foodPartner = req.foodPartner._id
             
-            await api.post('/food', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
+            console.log("Starting upload request...");
+            const startTime = Date.now();
+            await api.post('/food', formData);
+            console.log(`Upload request complete. Time taken: ${Date.now() - startTime}ms`);
 
             setSuccess('Food item created successfully!');
             setName('');

@@ -1,15 +1,23 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AlertCircle } from 'lucide-react';
 
 const Login = () => {
-    const [isPartner, setIsPartner] = useState(false);
+    const location = useLocation();
+    const [isPartner, setIsPartner] = useState(location.state?.isPartner || false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { login } = useAuth();
     const navigate = useNavigate();
+
+    // Update state if location state changes (e.g. back button)
+    useEffect(() => {
+        if (location.state?.isPartner !== undefined) {
+             setIsPartner(location.state.isPartner);
+        }
+    }, [location.state]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -82,7 +90,7 @@ const Login = () => {
                 </form>
                 
                 <p className="text-center text-gray-500 mt-6 text-sm">
-                    Don't have an account? <Link to="/signup" className="text-primary cursor-pointer hover:underline">Sign up</Link>
+                    Don't have an account? <Link to="/signup" state={{ isPartner }} className="text-primary cursor-pointer hover:underline">Sign up</Link>
                 </p>
             </div>
         </div>

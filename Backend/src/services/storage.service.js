@@ -8,12 +8,20 @@ const imagekit = new ImageKit({
 })
 
 
-const uploadFile = (file, fileName) => {
-    const result = imagekit.upload({
-        file: file,
-        fileName: fileName
-    });
-    return result;
+const uploadFile = async (file, fileName) => {
+    console.log(`[Storage Service] Starting upload for ${fileName}...`);
+    const startTime = Date.now();
+    try {
+        const result = await imagekit.upload({
+            file: file,
+            fileName: fileName
+        });
+        console.log(`[Storage Service] Upload successful for ${fileName}. Time taken: ${Date.now() - startTime}ms`);
+        return result;
+    } catch (error) {
+        console.error(`[Storage Service] Upload failed for ${fileName}. Time taken: ${Date.now() - startTime}ms`, error);
+        throw error;
+    }
 }
 
 export { uploadFile };

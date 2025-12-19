@@ -10,12 +10,51 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check if user is logged in (could verify token or check local storage)
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-        setLoading(false);
+        const verifySession = async () => {
+            try {
+                // First check local storage for optimistic UI
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                     setUser(JSON.parse(storedUser));
+                }
+
+                // Call backend to verify cookie
+                const { data } = await api.get('/verify');
+                if (data.success) {
+                    const userData = { ...(data.user || data.partner), role: data.role };
+                    setUser(userData);
+                    localStorage.setItem('user', JSON.stringify(userData));
+                }
+            } catch (error) {
+                // If verification fails (401), clear everything
+                console.log("Session verification failed", error);
+                setUser(null);
+                localStorage.removeItem('user');
+                if (window.location.pathname !== '/login' && window.location.pathname !== '/' && window.location.pathname !== '/signup') {
+                    // Optional: redirect to login if on a protected route
+                     // window.location.href = '/login'; 
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        verifySession();
+
+        // Listen for 401 Unauthorized events from axios
+        const handleLogout = () => {
+            setUser(null);
+            localStorage.removeItem('user');
+            if (window.location.pathname !== '/login') {
+                 window.location.href = '/login';
+            }
+        };
+
+        window.addEventListener('auth:logout', handleLogout);
+
+        return () => {
+            window.removeEventListener('auth:logout', handleLogout);
+        };
     }, []);
 
     const login = async (email, password, role) => {

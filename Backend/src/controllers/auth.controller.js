@@ -149,4 +149,41 @@ const foodPartnerLogin = async (req, res) => {
     }
 }
 
-export { registerUser, loginUser, logoutUser, foodPartnerResgister, foodPartnerLogin };
+const verifySession = async (req, res) => {
+    try {
+        const token = req.cookies.token;
+        if (!token) {
+            return res.status(401).json({ message: "No token provided" });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Check if it's a User
+        let user = await User.findById(decoded.id);
+        if (user) {
+            return res.status(200).json({
+                success: true,
+                user: { id: user._id, name: user.name, email: user.email },
+                role: 'user'
+            });
+        }
+
+        // Check if it's a Partner
+        let partner = await FoodPartner.findById(decoded.id);
+        if (partner) {
+            return res.status(200).json({
+                success: true,
+                partner: { id: partner._id, name: partner.name, email: partner.email },
+                role: 'partner'
+            });
+        }
+
+        return res.status(401).json({ message: "Invalid token" });
+
+    } catch (error) {
+        console.error("verifySession: caught error", error);
+        res.status(401).json({ message: "Invalid session" });
+    }
+}
+
+export { registerUser, loginUser, logoutUser, foodPartnerResgister, foodPartnerLogin, verifySession };
