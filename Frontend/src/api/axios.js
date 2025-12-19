@@ -12,8 +12,7 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            // Handle unauthorized access by dispatching a custom event
-            // This allows the AuthContext (which can't be imported here directly) to handle the logout
+            // Handle unauthorized access by dispatching a custom event handle the logout
             window.dispatchEvent(new Event('auth:logout'));
             console.warn("Unauthorized access - dispatching logout event");
         }
