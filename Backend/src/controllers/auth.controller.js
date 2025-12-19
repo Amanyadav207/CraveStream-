@@ -111,6 +111,9 @@ const foodPartnerResgister = async (req, res) => {
         });
     } catch (error) {
         console.error("foodPartnerResgister: caught error", error);
+        if (error.code === 11000) {
+            return res.status(400).json({ message: "Food Partner already exists" });
+        }
         res.status(500).json({ message: "Server error" });
     }
 }
