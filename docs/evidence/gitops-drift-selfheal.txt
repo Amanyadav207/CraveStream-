@@ -29,3 +29,13 @@ $ curl http://dev.cravestream.localhost/api/version
 Argo CD history of self-heal syncs:
 2026-10-18T11:12:01Z  ad638961882b459de1ab15a811fb363ddcd2e4ac
 2026-10-18T11:18:04Z  28ea3f5ac39043769d0c9e81a003919cada9b0eb
+
+### Automatic promotion through git (no kubectl, no human)
+CI run https://github.com/Amanyadav207/CraveStream-/actions/runs/39124168670 (commit dff2a68) passed all
+checks, and its promote-dev job committed 95f84c3 "deploy(dev): dff2a687c8f1 [skip ci]".
+Argo CD noticed the new git revision and rolled it out:
+$ curl http://dev.cravestream.localhost/api/version
+{"version":"dff2a687c8f1","commit":"dff2a687c8f195e8f03df0c8ae638e40a3f91d20","storageDriver":"s3"}
+$ kubectl -n argocd get application cravestream-dev
+Synced/Healthy  rev=95f84c30aaf683bf75944039fb96cd70ea7b14f7
+Meanwhile prod stayed on 02e8825ce83d: it changes only when a person promotes it.
