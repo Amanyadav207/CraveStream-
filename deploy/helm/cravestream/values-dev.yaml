@@ -1,0 +1,26 @@
+# dev: small footprint, fast iteration.
+global:
+  environment: dev
+
+ingress:
+  host: dev.cravestream.localhost
+
+# Image tags are updated by CI (job "promote-dev") after a successful build;
+# Argo CD then deploys them automatically.
+api:
+  image:
+    tag: "cacefac0b443"
+  replicas: 2
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 3
+
+frontend:
+  image:
+    tag: "cacefac0b443"
+  replicas: 1
+  pdb:
+    minAvailable: 0
+
+backup:
+  enabled: false

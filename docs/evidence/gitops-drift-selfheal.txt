@@ -1,0 +1,41 @@
+GitOps drift detection and self-heal (Argo CD Application cravestream-dev: automated sync, selfHeal=true, prune=true)
+Git revision deployed: 28ea3f5ac39043769d0c9e81a003919cada9b0eb
+
+### Drift 1: someone deletes a security control by hand
+$ date; kubectl -n cravestream-dev delete networkpolicy default-deny-ingress
+16:55:42
+networkpolicy.networking.k8s.io "default-deny-ingress" deleted from cravestream-dev namespace
+$ date; kubectl -n cravestream-dev get networkpolicy default-deny-ingress
+16:55:44
+NAME                   POD-SELECTOR   AGE
+default-deny-ingress   <none>         1s
+
+### Drift 2: someone hot-patches the running image
+$ kubectl -n cravestream-dev set image deploy/cravestream-api api=ghcr.io/amanyadav207/cravestream-api:ad638961882b
+16:55:44
+deployment.apps/cravestream-api image updated
+$ kubectl -n argocd get application cravestream-dev   # right after the change
+NAME              SYNC STATUS   HEALTH STATUS
+cravestream-dev   Synced        Healthy
+$ date; kubectl -n cravestream-dev get deploy cravestream-api -o jsonpath='{..image}'
+16:55:47
+ghcr.io/amanyadav207/cravestream-api:02e8825ce83d
+$ kubectl -n argocd get application cravestream-dev
+NAME              SYNC STATUS   HEALTH STATUS
+cravestream-dev   Synced        Healthy
+$ curl http://dev.cravestream.localhost/api/version
+{"version":"02e8825ce83d","commit":"02e8825ce83de61428b021ac4f2ed12a14af3034","storageDriver":"s3"}
+
+Argo CD history of self-heal syncs:
+2026-10-18T11:12:01Z  ad638961882b459de1ab15a811fb363ddcd2e4ac
+2026-10-18T11:18:04Z  28ea3f5ac39043769d0c9e81a003919cada9b0eb
+
+### Automatic promotion through git (no kubectl, no human)
+CI run https://github.com/Amanyadav207/CraveStream-/actions/runs/39124168670 (commit dff2a68) passed all
+checks, and its promote-dev job committed 95f84c3 "deploy(dev): dff2a687c8f1 [skip ci]".
+Argo CD noticed the new git revision and rolled it out:
+$ curl http://dev.cravestream.localhost/api/version
+{"version":"dff2a687c8f1","commit":"dff2a687c8f195e8f03df0c8ae638e40a3f91d20","storageDriver":"s3"}
+$ kubectl -n argocd get application cravestream-dev
+Synced/Healthy  rev=95f84c30aaf683bf75944039fb96cd70ea7b14f7
+Meanwhile prod stayed on 02e8825ce83d: it changes only when a person promotes it.

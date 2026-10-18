@@ -1,0 +1,11 @@
+$ kubectl run np-test -n default ... nc -z <service> <port>   # from OUTSIDE the app namespace
+mongo-0.mongo.cravestream:27017 blocked
+seaweedfs.cravestream:8333 blocked
+cravestream-api.cravestream:3000 blocked
+
+$ kubectl -n cravestream exec deploy/cravestream-api -- node -e <tcp connect>   # from the API pod
+mongo-0.mongo:27017 reachable
+seaweedfs:8333 reachable
+
+$ kubectl -n cravestream run bad --image=busybox --overrides=<privileged: true>
+Error from server (Forbidden): pods "bad" is forbidden: violates PodSecurity "restricted:latest": privileged (container "bad" must not set securityContext.privileged=true) ...

@@ -2,36 +2,46 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import FoodPartner from "../models/foodpartner.model.js";
+import config from "../config.js";
 
 
 
-const isProduction = process.env.NODE_ENV === 'production';
 const cookieOptions = {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
+    secure: config.cookieSecure,
+    sameSite: config.cookieSameSite,
     maxAge: 24 * 60 * 60 * 1000
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Returns an error message, or null when the body is valid.
+const validateCredentials = ({ name, email, password }, { requireName }) => {
+    if (requireName && (typeof name !== "string" || !name.trim())) return "name is required";
+    if (typeof email !== "string" || !EMAIL_PATTERN.test(email)) return "a valid email is required";
+    if (typeof password !== "string" || password.length < 6) return "password must be at least 6 characters";
+    return null;
+}
+
 const registerUser = async (req, res) => {
+    const invalid = validateCredentials(req.body ?? {}, { requireName: true });
+    if (invalid) return res.status(400).json({ message: invalid });
     try {
         const { name, email, password } = req.body;
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            console.log("registerUser: existing user found, sending 400", { email });
+            req.log.info("user already exists");
             return res.status(400).json({ message: "User already exists" });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ name, email, password: hashedPassword });
 
-        const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        const token = jwt.sign({ id: newUser._id }, config.jwtSecret, { expiresIn: '1d' });
 
         res.cookie("token", token, cookieOptions);
-
-        console.log("registerUser: creating new user", { email });
         await newUser.save();
-        console.log("registerUser: new user saved, sending 201", { id: newUser._id });
+        req.log.info({ id: newUser._id }, "user registered");
         res.status(201).json({
             message: "User registered successfully",
             user: {
@@ -41,27 +51,32 @@ const registerUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("registerUser: caught error", error);
+        req.log.error({ err: error }, "registerUser failed");
+        if (error.code === 11000) {
+            return res.status(400).json({ message: "User already exists" });
+        }
         res.status(500).json({ message: "Server error" });
     }
 }
 
 const loginUser = async (req, res) => {
+    const invalid = validateCredentials(req.body ?? {}, { requireName: false });
+    if (invalid) return res.status(400).json({ message: invalid });
     const { email, password } = req.body;
 
     try {
         const user = await User.findOne({ email });
         if (!user) {
-            console.log("loginUser: user not found, sending 400", { email });
+            req.log.info("login failed: unknown account");
             return res.status(400).json({ message: "Invalid credentials" });
         }
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            console.log("loginUser: password mismatch, sending 400", { email });
+            req.log.info("login failed: wrong password");
             return res.status(400).json({ message: "Invalid credentials" });
         }
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        const token = jwt.sign({ id: user._id }, config.jwtSecret, { expiresIn: '1d' });
 
         res.cookie("token", token, cookieOptions);
         res.status(200).json({
@@ -73,7 +88,7 @@ const loginUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("loginUser: caught error", error);
+        req.log.error({ err: error }, "loginUser failed");
         res.status(500).json({ message: "Server error" });
     }
 }
@@ -84,23 +99,23 @@ const logoutUser = (req, res) => {
 }
 
 const foodPartnerResgister = async (req, res) => {
+    const invalid = validateCredentials(req.body ?? {}, { requireName: true });
+    if (invalid) return res.status(400).json({ message: invalid });
     try {
         const { name, email, password } = req.body;
         const existingPartner = await FoodPartner.findOne({ email });
         if (existingPartner) {
-            console.log("foodPartnerResgister: existing partner found, sending 400", { email });
+            req.log.info("partner already exists");
             return res.status(400).json({ message: "Food Partner already exists" });
         }
         const hashedPassword = await bcrypt.hash(password, 10);
         const newPartner = new FoodPartner({ name, email, password: hashedPassword });
 
-        const token = jwt.sign({ id: newPartner._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        const token = jwt.sign({ id: newPartner._id }, config.jwtSecret, { expiresIn: '1d' });
 
         res.cookie("token", token, cookieOptions);
-
-        console.log("foodPartnerResgister: creating new partner", { email });
         await newPartner.save();
-        console.log("foodPartnerResgister: new partner saved, sending 201", { id: newPartner._id });
+        req.log.info({ id: newPartner._id }, "partner registered");
         res.status(201).json({
             message: "Food Partner registered successfully",
             partner: {
@@ -110,7 +125,7 @@ const foodPartnerResgister = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("foodPartnerResgister: caught error", error);
+        req.log.error({ err: error }, "foodPartnerResgister failed");
         if (error.code === 11000) {
             return res.status(400).json({ message: "Food Partner already exists" });
         }
@@ -119,20 +134,22 @@ const foodPartnerResgister = async (req, res) => {
 }
 
 const foodPartnerLogin = async (req, res) => {
+    const invalid = validateCredentials(req.body ?? {}, { requireName: false });
+    if (invalid) return res.status(400).json({ message: invalid });
     const { email, password } = req.body;
 
     try {
         const partner = await FoodPartner.findOne({ email });
         if (!partner) {
-            console.log("foodPartnerLogin: partner not found, sending 400", { email });
+            req.log.info("login failed: unknown account");
             return res.status(400).json({ message: "Invalid credentials" });
         }
         const isMatch = await bcrypt.compare(password, partner.password);
         if (!isMatch) {
-            console.log("foodPartnerLogin: password mismatch, sending 400", { email });
+            req.log.info("login failed: wrong password");
             return res.status(400).json({ message: "Invalid credentials" });
         }
-        const token = jwt.sign({ id: partner._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        const token = jwt.sign({ id: partner._id }, config.jwtSecret, { expiresIn: '1d' });
 
         res.cookie("token", token, cookieOptions);
         res.status(200).json({
@@ -144,20 +161,25 @@ const foodPartnerLogin = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("foodPartnerLogin: caught error", error);
+        req.log.error({ err: error }, "foodPartnerLogin failed");
         res.status(500).json({ message: "Server error" });
     }
 }
 
-const verifySession = async (req, res) => {
+const verifySession = async (req, res, next) => {
+    const token = req.cookies.token;
+    if (!token) {
+        return res.status(401).json({ message: "No token provided" });
+    }
+
+    let decoded;
     try {
-        const token = req.cookies.token;
-        if (!token) {
-            return res.status(401).json({ message: "No token provided" });
-        }
+        decoded = jwt.verify(token, config.jwtSecret);
+    } catch {
+        return res.status(401).json({ message: "Invalid session" });
+    }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
+    try {
         // Check if it's a User
         let user = await User.findById(decoded.id);
         if (user) {
@@ -181,8 +203,8 @@ const verifySession = async (req, res) => {
         return res.status(401).json({ message: "Invalid token" });
 
     } catch (error) {
-        console.error("verifySession: caught error", error);
-        res.status(401).json({ message: "Invalid session" });
+        // DB problem, not an auth problem: let the error handler return 5xx.
+        next(error);
     }
 }
 

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cravestream-frontend
+  labels:
+    {{- include "cravestream.labels" . | nindent 4 }}
+    {{- include "cravestream.selector" (dict "component" "frontend") | nindent 4 }}
+    app.kubernetes.io/version: {{ .Values.frontend.image.tag | quote }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: {{- include "cravestream.selector" (dict "component" "frontend") | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "cravestream.selector" (dict "component" "frontend") | nindent 8 }}
+        app.kubernetes.io/version: {{ .Values.frontend.image.tag | quote }}
+    spec:
+      serviceAccountName: cravestream
+      automountServiceAccountToken: false
+      securityContext: {{- include "cravestream.podSecurity" (dict "uid" 101) | nindent 8 }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {{- include "cravestream.selector" (dict "component" "frontend") | nindent 14 }}
+      containers:
+        - name: frontend
+          image: {{ include "cravestream.image" (dict "root" . "img" .Values.frontend.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.frontend.port }}
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          resources: {{- toYaml .Values.frontend.resources | nindent 12 }}
+          securityContext: {{- include "cravestream.containerSecurity" (dict "readOnly" true) | nindent 12 }}
+          # nginx needs a writable /tmp (pid file, temp buffers) with a read-only root fs.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cravestream-frontend
+  labels: {{- include "cravestream.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "cravestream.selector" (dict "component" "frontend") | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.frontend.port }}
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cravestream-frontend
+  labels: {{- include "cravestream.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.frontend.pdb.minAvailable }}
+  selector:
+    matchLabels: {{- include "cravestream.selector" (dict "component" "frontend") | nindent 6 }}

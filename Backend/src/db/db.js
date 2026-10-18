@@ -1,12 +1,26 @@
 import mongoose from "mongoose";
+import config from "../config.js";
+import { logger } from "../observability/logger.js";
 
+mongoose.connection.on("disconnected", () => logger.warn("MongoDB disconnected"));
+mongoose.connection.on("reconnected", () => logger.info("MongoDB reconnected"));
+
+const MAX_ATTEMPTS = Number(process.env.DB_CONNECT_ATTEMPTS) || 12;
+
+// Retry for about a minute so the API tolerates starting before MongoDB.
+// If it still fails, exit: Kubernetes restarts the pod with backoff and the
+// readiness probe keeps traffic away meanwhile.
 const connectDB = async () => {
-    try {
-        await mongoose.connect(process.env.DB_URL);
-        console.log("MongoDB connected successfully");
-    } catch (error) {
-        console.error("MongoDB connection failed:", error);
-        process.exit(1);
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+            await mongoose.connect(config.dbUrl, { serverSelectionTimeoutMS: 5000 });
+            logger.info("MongoDB connected");
+            return;
+        } catch (error) {
+            logger.error({ attempt, maxAttempts: MAX_ATTEMPTS, err: error.message }, "MongoDB connection failed");
+            if (attempt === MAX_ATTEMPTS) process.exit(1);
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
     }
 }
 

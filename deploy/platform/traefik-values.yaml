@@ -1,0 +1,32 @@
+# Traefik ingress controller (ingress-nginx was retired in 2026).
+# Exposed as NodePort so kind's port mapping can reach it on localhost.
+service:
+  type: NodePort
+ports:
+  web:
+    nodePort: 30080
+  websecure:
+    nodePort: 30443
+providers:
+  kubernetesIngress:
+    enabled: true
+    # Publish an address in each Ingress's status so tools such as Argo CD
+    # report the Ingress as Healthy (kind has no cloud load balancer).
+    ingressEndpoint:
+      ip: 127.0.0.1
+    publishedService:
+      enabled: false
+  kubernetesCRD:
+    enabled: false
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+nodeSelector:
+  kubernetes.io/hostname: cravestream-control-plane
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+resources:
+  requests: { cpu: 50m, memory: 64Mi }
+  limits: { cpu: 500m, memory: 256Mi }

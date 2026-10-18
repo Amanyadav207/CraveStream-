@@ -1,0 +1,18 @@
+# prod: more replicas, autoscaling headroom, TLS, nightly backups.
+global:
+  environment: prod
+
+api:
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 5
+
+frontend:
+  replicas: 2
+
+ingress:
+  tls:
+    enabled: true
+
+backup:
+  enabled: true

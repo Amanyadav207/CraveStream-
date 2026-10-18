@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AlertCircle } from 'lucide-react';
@@ -13,12 +13,14 @@ const Signup = () => {
     const { register } = useAuth();
     const navigate = useNavigate();
 
-    // Update state if location state changes
-    useEffect(() => {
+    // Update (during render, as React recommends) state if location state changes
+    const [prevLocationState, setPrevLocationState] = useState(location.state);
+    if (location.state !== prevLocationState) {
+        setPrevLocationState(location.state);
         if (location.state?.isPartner !== undefined) {
-             setIsPartner(location.state.isPartner);
+            setIsPartner(location.state.isPartner);
         }
-    }, [location.state]);
+    }
 
     const handleSubmit = async (e) => {
         e.preventDefault();

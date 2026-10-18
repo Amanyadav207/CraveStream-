@@ -1,0 +1,226 @@
+name: CI
+
+# Every push and PR is linted, tested and security-scanned. Images are built,
+# scanned and smoke-deployed to a throwaway kind cluster; on push they are
+# published to GHCR tagged with the commit SHA.
+on:
+  push:
+    branches: [main, devops]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io/amanyadav207
+  TRIVY_IMAGE: aquasec/trivy:0.76.0
+  GITLEAKS_IMAGE: zricethezav/gitleaks:v8.30.1
+
+jobs:
+  backend:
+    name: Backend - lint, test, audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend
+    services:
+      mongo:
+        image: mongo:7
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Backend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+        env:
+          DB_URL: mongodb://127.0.0.1:27017/cravestream_test
+      # Dependency scan: fail on high/critical issues in production deps.
+      - run: npm audit --omit=dev --audit-level=high
+
+  frontend:
+    name: Frontend - lint, build, audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm audit --audit-level=high
+
+  secrets-and-config:
+    name: Secret scan + Helm lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # scan the whole git history, not just this commit
+      - name: gitleaks (full history)
+        run: docker run --rm -v "$PWD:/repo" "$GITLEAKS_IMAGE" git /repo --no-banner --redact --exit-code 1
+      - uses: azure/setup-helm@v5
+      - name: helm lint + render both environments
+        run: |
+          for env in dev prod; do
+            helm lint deploy/helm/cravestream -f deploy/helm/cravestream/values-$env.yaml
+            helm template cravestream deploy/helm/cravestream -f deploy/helm/cravestream/values-$env.yaml > /dev/null
+          done
+      - name: Trivy config scan (Dockerfiles + Helm chart)
+        run: |
+          docker run --rm -v "$PWD:/src" "$TRIVY_IMAGE" config \
+            --severity HIGH,CRITICAL --exit-code 1 /src
+
+  image:
+    name: Image - build, scan, push (${{ matrix.component }})
+    needs: [backend, frontend, secrets-and-config]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - component: api
+            context: Backend
+          - component: frontend
+            context: Frontend
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compute tag from commit
+        run: echo "TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@v4
+      - name: Build image (load locally for scanning)
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          load: true
+          tags: ${{ env.REGISTRY }}/cravestream-${{ matrix.component }}:${{ env.TAG }}
+          build-args: |
+            APP_VERSION=${{ env.TAG }}
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+      - name: Trivy image scan (fail on fixable HIGH/CRITICAL)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" image \
+            --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress \
+            "$REGISTRY/cravestream-${{ matrix.component }}:$TAG"
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/out" "$TRIVY_IMAGE" image \
+            --format cyclonedx --output /out/sbom-${{ matrix.component }}.cdx.json \
+            "$REGISTRY/cravestream-${{ matrix.component }}:$TAG"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sbom-${{ matrix.component }}
+          path: sbom-${{ matrix.component }}.cdx.json
+      - name: Save image for the smoke test
+        run: docker save "$REGISTRY/cravestream-${{ matrix.component }}:$TAG" -o image-${{ matrix.component }}.tar
+      - uses: actions/upload-artifact@v7
+        with:
+          name: image-${{ matrix.component }}
+          path: image-${{ matrix.component }}.tar
+          retention-days: 1
+      - name: Push to GHCR (push events only)
+        if: github.event_name == 'push'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "$REGISTRY/cravestream-${{ matrix.component }}:$TAG"
+          echo "### Pushed \`$REGISTRY/cravestream-${{ matrix.component }}:$TAG\`" >> "$GITHUB_STEP_SUMMARY"
+
+  k8s-smoke:
+    name: Deploy to a fresh kind cluster and smoke test
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: echo "TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: image-*
+          merge-multiple: true
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: cravestream
+          config: deploy/kind/cluster.yaml
+      - uses: azure/setup-helm@v5
+      - name: Load images into kind
+        run: |
+          for c in api frontend; do docker load -i image-$c.tar; done
+          kind load docker-image --name cravestream "$REGISTRY/cravestream-api:$TAG" "$REGISTRY/cravestream-frontend:$TAG"
+      - name: Install platform (Traefik, metrics-server)
+        run: |
+          helm repo add traefik https://traefik.github.io/charts
+          helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+          helm upgrade --install traefik traefik/traefik --version 42.0.0 -n traefik --create-namespace \
+            -f deploy/platform/traefik-values.yaml --wait
+      - name: Deploy with Helm (same script as local)
+        run: TAG="$TAG" SKIP_BUILD=1 scripts/deploy-local.sh prod
+      - name: Smoke test through the Ingress
+        run: |
+          set -e
+          kubectl -n traefik port-forward svc/traefik 8443:443 >/dev/null 2>&1 &
+          sleep 5
+          B=https://cravestream.localhost:8443
+          R="--resolve cravestream.localhost:8443:127.0.0.1 -sk --fail"
+          curl $R $B/api/readyz
+          curl $R $B/api/version | tee version.json
+          grep -q "\"version\":\"$TAG\"" version.json
+          curl $R -o /dev/null $B/
+          curl $R -c jar -H 'Content-Type: application/json' \
+            -d '{"name":"CI","email":"ci@test.local","password":"testpass123"}' $B/api/user/register
+          curl $R -b jar $B/api/food
+      - name: Debug on failure
+        if: failure()
+        run: |
+          kubectl get pods -A -o wide
+          kubectl -n cravestream describe pods | tail -80
+          kubectl -n cravestream logs deploy/cravestream-api --tail=50 || true
+
+  promote-dev:
+    name: Promote to dev (GitOps commit)
+    # Only after every check passed, and only for pushes to the working branch.
+    needs: k8s-smoke
+    if: github.event_name == 'push' && github.ref == 'refs/heads/devops'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Set dev image tags to this commit
+        run: |
+          TAG="${GITHUB_SHA::12}"
+          sed -i -E "s/^(    tag: )\"[^\"]*\"/\1\"$TAG\"/" deploy/helm/cravestream/values-dev.yaml
+          git diff --stat
+      - name: Commit and push (Argo CD syncs the dev environment from this)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/helm/cravestream/values-dev.yaml
+          git diff --cached --quiet && { echo "already at this tag"; exit 0; }
+          git commit -m "deploy(dev): ${GITHUB_SHA::12} [skip ci]"
+          git pull --rebase origin "${{ github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"
+          echo "### Promoted \`${GITHUB_SHA::12}\` to dev" >> "$GITHUB_STEP_SUMMARY"

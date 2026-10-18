@@ -1,0 +1,18 @@
+# Local Kubernetes cluster: 1 control plane + 2 workers, so we can show pods
+# spreading across nodes, PodDisruptionBudgets and node drains.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: cravestream
+nodes:
+  - role: control-plane
+    # The ingress controller is exposed as NodePort 30080/30443; map those to
+    # localhost:80/443 so http://cravestream.localhost works from the browser.
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 80
+        listenAddress: "127.0.0.1"
+      - containerPort: 30443
+        hostPort: 443
+        listenAddress: "127.0.0.1"
+  - role: worker
+  - role: worker

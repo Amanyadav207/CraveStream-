@@ -1,0 +1,27 @@
+# Argo CD, minimal for a local cluster (no SSO/Dex, no notifications).
+dex:
+  enabled: false
+notifications:
+  enabled: false
+configs:
+  params:
+    server.insecure: true        # TLS is terminated by the Traefik ingress
+  cm:
+    # Track resources by annotation so Argo does not fight Helm's
+    # app.kubernetes.io/instance label.
+    application.resourceTrackingMethod: annotation
+    timeout.reconciliation: 60s  # poll git every 60s (no webhook into a laptop)
+server:
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hostname: argocd.localhost
+redis:
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+controller:
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+repoServer:
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
