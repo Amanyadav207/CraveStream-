@@ -1,0 +1,85 @@
+{{- if .Values.networkPolicy.enabled }}
+# Default deny: no pod in this namespace accepts traffic unless allowed below.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  labels: {{- include "cravestream.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]
+---
+# Frontend: only from the ingress controller.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend
+  labels: {{- include "cravestream.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "cravestream.selector" (dict "component" "frontend") | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: traefik }
+      ports:
+        - port: {{ .Values.frontend.port }}
+---
+# API: from the ingress controller, the frontend's nginx proxy, and Prometheus.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api
+  labels: {{- include "cravestream.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "cravestream.selector" (dict "component" "api") | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: traefik }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: monitoring }
+        - podSelector:
+            matchLabels: {{- include "cravestream.selector" (dict "component" "frontend") | nindent 14 }}
+      ports:
+        - port: {{ .Values.api.port }}
+---
+# MongoDB: only the API and the backup job. Never reachable from outside.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-mongo
+  labels: {{- include "cravestream.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "cravestream.selector" (dict "component" "mongo") | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {{- include "cravestream.selector" (dict "component" "api") | nindent 14 }}
+        - podSelector:
+            matchLabels: {{- include "cravestream.selector" (dict "component" "mongo-backup") | nindent 14 }}
+      ports:
+        - port: 27017
+---
+# Object storage: only the API.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-seaweedfs
+  labels: {{- include "cravestream.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "cravestream.selector" (dict "component" "seaweedfs") | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {{- include "cravestream.selector" (dict "component" "api") | nindent 14 }}
+      ports:
+        - port: 8333
+{{- end }}

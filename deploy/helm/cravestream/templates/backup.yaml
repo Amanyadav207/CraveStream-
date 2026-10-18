@@ -1,0 +1,61 @@
+{{- if .Values.backup.enabled }}
+# Nightly mongodump into its own volume; keeps the last 7 archives.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-backup
+  labels: {{- include "cravestream.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.backup.storage }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mongo-backup
+  labels: {{- include "cravestream.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels: {{- include "cravestream.selector" (dict "component" "mongo-backup") | nindent 12 }}
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: cravestream
+          automountServiceAccountToken: false
+          securityContext: {{- include "cravestream.podSecurity" (dict "uid" 999) | nindent 12 }}
+          containers:
+            - name: mongodump
+              image: {{ .Values.mongo.image }}
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  file=/backup/cravestream-$(date +%Y%m%d-%H%M%S).archive.gz
+                  mongodump --uri="$DB_URL" --archive="$file" --gzip
+                  ls -1t /backup/*.archive.gz | tail -n +8 | xargs -r rm -f
+                  echo "backup written: $file"; ls -lh /backup
+              env:
+                - name: DB_URL
+                  valueFrom: { secretKeyRef: { name: {{ .Values.existingSecret }}, key: DB_URL } }
+              resources:
+                requests: { cpu: 50m, memory: 64Mi }
+                limits: { cpu: 500m, memory: 256Mi }
+              securityContext: {{- include "cravestream.containerSecurity" (dict "readOnly" true) | nindent 16 }}
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: mongo-backup
+{{- end }}

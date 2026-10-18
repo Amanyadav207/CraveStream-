@@ -17,6 +17,12 @@ const config = {
     dbUrl: required("DB_URL"),
     jwtSecret: required("JWT_SECRET"),
     corsOrigin: process.env.CORS_ORIGIN || "http://localhost:5173",
+    // Secure cookies need HTTPS. Same-origin deployment (Ingress / nginx proxy)
+    // lets us use SameSite=lax, which also blocks cross-site request forgery.
+    cookieSecure: process.env.COOKIE_SECURE
+        ? process.env.COOKIE_SECURE === "true"
+        : (process.env.NODE_ENV || "development") === "production",
+    cookieSameSite: process.env.COOKIE_SAMESITE || "lax",
     // Set by the Docker build / Kubernetes so the running version is visible.
     appVersion: process.env.APP_VERSION || "dev",
     gitSha: process.env.GIT_SHA || "unknown",

@@ -1,0 +1,20 @@
+# dev: small footprint, fast iteration.
+global:
+  environment: dev
+
+ingress:
+  host: dev.cravestream.localhost
+
+api:
+  replicas: 2
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 3
+
+frontend:
+  replicas: 1
+  pdb:
+    minAvailable: 0
+
+backup:
+  enabled: false

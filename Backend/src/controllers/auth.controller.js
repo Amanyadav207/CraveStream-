@@ -6,11 +6,10 @@ import config from "../config.js";
 
 
 
-const isProduction = config.nodeEnv === 'production';
 const cookieOptions = {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
+    secure: config.cookieSecure,
+    sameSite: config.cookieSameSite,
     maxAge: 24 * 60 * 60 * 1000
 };
 
