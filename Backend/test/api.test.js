@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 process.env.DB_URL ??= "mongodb://127.0.0.1:27017/cravestream_test";
 process.env.JWT_SECRET ??= "test-secret";
+process.env.NODE_ENV ??= "test";
 process.env.STORAGE_DRIVER ??= "s3";
 
 const { default: mongoose } = await import("mongoose");
@@ -87,4 +88,14 @@ test("media route rejects invalid keys and unknown routes return JSON 404", asyn
     const res = await api.get("/api/does-not-exist");
     assert.equal(res.status, 404);
     assert.match(res.headers["content-type"], /json/);
+});
+
+test("metrics endpoint exposes RED metrics and responses carry a request ID", async () => {
+    const res = await api.get("/api/version").set("X-Request-Id", "test-req-123");
+    assert.equal(res.headers["x-request-id"], "test-req-123");
+    const metrics = await api.get("/metrics");
+    assert.equal(metrics.status, 200);
+    assert.match(metrics.text, /http_requests_total\{[^}]*route="\/api\/version"/);
+    assert.match(metrics.text, /http_request_duration_seconds_bucket/);
+    assert.match(metrics.text, /mongodb_up 1/);
 });

@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
 import config from "../config.js";
+import { logger } from "../observability/logger.js";
 
-mongoose.connection.on("disconnected", () => console.warn("MongoDB disconnected"));
-mongoose.connection.on("reconnected", () => console.log("MongoDB reconnected"));
+mongoose.connection.on("disconnected", () => logger.warn("MongoDB disconnected"));
+mongoose.connection.on("reconnected", () => logger.info("MongoDB reconnected"));
 
 const MAX_ATTEMPTS = Number(process.env.DB_CONNECT_ATTEMPTS) || 12;
 
@@ -13,10 +14,10 @@ const connectDB = async () => {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
             await mongoose.connect(config.dbUrl, { serverSelectionTimeoutMS: 5000 });
-            console.log("MongoDB connected successfully");
+            logger.info("MongoDB connected");
             return;
         } catch (error) {
-            console.error(`MongoDB connection attempt ${attempt}/${MAX_ATTEMPTS} failed:`, error.message);
+            logger.error({ attempt, maxAttempts: MAX_ATTEMPTS, err: error.message }, "MongoDB connection failed");
             if (attempt === MAX_ATTEMPTS) process.exit(1);
             await new Promise((resolve) => setTimeout(resolve, 2000));
         }

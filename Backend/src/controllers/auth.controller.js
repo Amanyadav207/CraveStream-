@@ -30,7 +30,7 @@ const registerUser = async (req, res) => {
         const { name, email, password } = req.body;
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            console.log("registerUser: existing user found, sending 400", { email });
+            req.log.info("user already exists");
             return res.status(400).json({ message: "User already exists" });
         }
 
@@ -40,10 +40,8 @@ const registerUser = async (req, res) => {
         const token = jwt.sign({ id: newUser._id }, config.jwtSecret, { expiresIn: '1d' });
 
         res.cookie("token", token, cookieOptions);
-
-        console.log("registerUser: creating new user", { email });
         await newUser.save();
-        console.log("registerUser: new user saved, sending 201", { id: newUser._id });
+        req.log.info({ id: newUser._id }, "user registered");
         res.status(201).json({
             message: "User registered successfully",
             user: {
@@ -53,7 +51,7 @@ const registerUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("registerUser: caught error", error);
+        req.log.error({ err: error }, "registerUser failed");
         if (error.code === 11000) {
             return res.status(400).json({ message: "User already exists" });
         }
@@ -69,12 +67,12 @@ const loginUser = async (req, res) => {
     try {
         const user = await User.findOne({ email });
         if (!user) {
-            console.log("loginUser: user not found, sending 400", { email });
+            req.log.info("login failed: unknown account");
             return res.status(400).json({ message: "Invalid credentials" });
         }
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            console.log("loginUser: password mismatch, sending 400", { email });
+            req.log.info("login failed: wrong password");
             return res.status(400).json({ message: "Invalid credentials" });
         }
 
@@ -90,7 +88,7 @@ const loginUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("loginUser: caught error", error);
+        req.log.error({ err: error }, "loginUser failed");
         res.status(500).json({ message: "Server error" });
     }
 }
@@ -107,7 +105,7 @@ const foodPartnerResgister = async (req, res) => {
         const { name, email, password } = req.body;
         const existingPartner = await FoodPartner.findOne({ email });
         if (existingPartner) {
-            console.log("foodPartnerResgister: existing partner found, sending 400", { email });
+            req.log.info("partner already exists");
             return res.status(400).json({ message: "Food Partner already exists" });
         }
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -116,10 +114,8 @@ const foodPartnerResgister = async (req, res) => {
         const token = jwt.sign({ id: newPartner._id }, config.jwtSecret, { expiresIn: '1d' });
 
         res.cookie("token", token, cookieOptions);
-
-        console.log("foodPartnerResgister: creating new partner", { email });
         await newPartner.save();
-        console.log("foodPartnerResgister: new partner saved, sending 201", { id: newPartner._id });
+        req.log.info({ id: newPartner._id }, "partner registered");
         res.status(201).json({
             message: "Food Partner registered successfully",
             partner: {
@@ -129,7 +125,7 @@ const foodPartnerResgister = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("foodPartnerResgister: caught error", error);
+        req.log.error({ err: error }, "foodPartnerResgister failed");
         if (error.code === 11000) {
             return res.status(400).json({ message: "Food Partner already exists" });
         }
@@ -145,12 +141,12 @@ const foodPartnerLogin = async (req, res) => {
     try {
         const partner = await FoodPartner.findOne({ email });
         if (!partner) {
-            console.log("foodPartnerLogin: partner not found, sending 400", { email });
+            req.log.info("login failed: unknown account");
             return res.status(400).json({ message: "Invalid credentials" });
         }
         const isMatch = await bcrypt.compare(password, partner.password);
         if (!isMatch) {
-            console.log("foodPartnerLogin: password mismatch, sending 400", { email });
+            req.log.info("login failed: wrong password");
             return res.status(400).json({ message: "Invalid credentials" });
         }
         const token = jwt.sign({ id: partner._id }, config.jwtSecret, { expiresIn: '1d' });
@@ -165,7 +161,7 @@ const foodPartnerLogin = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("foodPartnerLogin: caught error", error);
+        req.log.error({ err: error }, "foodPartnerLogin failed");
         res.status(500).json({ message: "Server error" });
     }
 }

@@ -6,6 +6,7 @@ import {
     CreateBucketCommand,
 } from "@aws-sdk/client-s3";
 import config from "../../config.js";
+import { logger } from "../../observability/logger.js";
 
 const { endpoint, region, bucket, accessKeyId, secretAccessKey } = config.storage.s3;
 
@@ -22,7 +23,7 @@ const init = async () => {
     } catch (error) {
         if (error.$metadata?.httpStatusCode !== 404) throw error;
         await client.send(new CreateBucketCommand({ Bucket: bucket }));
-        console.log(`[Storage Service] created bucket "${bucket}"`);
+        logger.info({ bucket }, "created bucket");
     }
 };
 

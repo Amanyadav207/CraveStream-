@@ -1,5 +1,6 @@
 import foodModel from "../models/food.model.js";
 import { uploadFile } from "../services/storage.service.js";
+import { uploads } from "../observability/metrics.js";
 
 const createFood = async (req, res) => {
 
@@ -15,18 +16,15 @@ const createFood = async (req, res) => {
         return res.status(400).json({ message: "price must be a non-negative number" });
     }
 
-    console.log(`[Food Controller] Received create request. File size: ${req.file.size} bytes`);
-    const startTime = Date.now();
-
     let fileUploadedResult;
     try {
         fileUploadedResult = await uploadFile(req.file.buffer, req.file.mimetype);
     } catch {
+        uploads.inc({ result: "storage_error" });
         // The video store is a separate dependency: report it as unavailable
         // rather than a generic server error.
         return res.status(502).json({ message: "Video storage is unavailable, please try again later" });
     }
-    console.log(`[Food Controller] File upload complete. Time taken: ${Date.now() - startTime}ms`);
 
     const fooditem = new foodModel({
         name,
@@ -38,12 +36,15 @@ const createFood = async (req, res) => {
 
     try {
         await fooditem.save();
+        uploads.inc({ result: "success" });
+        req.log.info({ foodId: fooditem._id, bytes: req.file.size }, "food item created");
         res.status(201).json({
             message: "Food item created successfully",
             fooditem
         });
     } catch (error) {
-        console.error("createFood: save failed", error);
+        uploads.inc({ result: "db_error" });
+        req.log.error({ err: error }, "food item save failed");
         res.status(500).json({ message: "Failed to create food item" });
     }
 
@@ -59,7 +60,7 @@ const getFoodItems = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("getFoodItems error:", error);
+        req.log.error({ err: error }, "list food items failed");
         res.status(500).json({ message: "Server error" });
     }
 }
@@ -74,7 +75,7 @@ const getPartnerFoodItems = async (req, res) => {
             foodItems
         });
     } catch (error) {
-        console.error("getPartnerFoodItems error:", error);
+        req.log.error({ err: error }, "list partner food items failed");
         res.status(500).json({ message: "Server error" });
     }
 }

@@ -1,0 +1,95 @@
+{{- if .Values.monitoring.enabled }}
+# Grafana picks up this dashboard through its sidecar (label grafana_dashboard).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cravestream-dashboard
+  labels:
+    {{- include "cravestream.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  cravestream.json: |-
+{{ .Files.Get "dashboards/cravestream.json" | indent 4 }}
+{{- if .Capabilities.APIVersions.Has "monitoring.coreos.com/v1/ServiceMonitor" }}
+---
+# Tell Prometheus to scrape the API pods' /metrics every 15s.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cravestream-api
+  labels: {{- include "cravestream.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {{- include "cravestream.selector" (dict "component" "api") | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+---
+# SLOs (per environment):
+#   Availability: 99.5% of API requests return non-5xx over 30 days
+#                 (error budget 0.5% = ~3.6h of full outage per month)
+#   Latency:      95% of API requests complete in under 500ms
+# Burn-rate alerts (Google SRE workbook): page on a fast burn, ticket on a slow burn.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cravestream-slo
+  labels: {{- include "cravestream.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: cravestream-sli
+      rules:
+        {{- range $w := list "5m" "30m" "1h" "6h" }}
+        - record: cravestream:error_ratio:rate{{ $w }}
+          expr: |
+            sum(rate(http_requests_total{namespace="{{ $.Release.Namespace }}",status_code=~"5.."}[{{ $w }}]))
+            / clamp_min(sum(rate(http_requests_total{namespace="{{ $.Release.Namespace }}"}[{{ $w }}])), 1e-9)
+        {{- end }}
+    - name: cravestream-alerts
+      rules:
+        - alert: CraveStreamErrorBudgetFastBurn
+          # 14.4x burn: the whole 30-day budget would be gone in ~2 days.
+          expr: cravestream:error_ratio:rate5m > (14.4 * 0.005) and cravestream:error_ratio:rate1h > (14.4 * 0.005)
+          for: 2m
+          labels: { severity: critical }
+          annotations:
+            summary: "CraveStream API is burning its error budget fast ({{ "{{" }} $value | humanizePercentage {{ "}}" }} 5xx)"
+            runbook: "docs/RUNBOOK.md#high-error-rate"
+        - alert: CraveStreamErrorBudgetSlowBurn
+          expr: cravestream:error_ratio:rate30m > (6 * 0.005) and cravestream:error_ratio:rate6h > (6 * 0.005)
+          for: 15m
+          labels: { severity: warning }
+          annotations:
+            summary: "CraveStream API error rate is eroding the monthly budget"
+            runbook: "docs/RUNBOOK.md#high-error-rate"
+        - alert: CraveStreamHighLatency
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{namespace="{{ .Release.Namespace }}"}[5m]))) > 0.5
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: "p95 API latency above 500ms"
+            runbook: "docs/RUNBOOK.md#high-latency"
+        - alert: CraveStreamAPIDown
+          expr: sum(up{namespace="{{ .Release.Namespace }}",service="cravestream-api"}) == 0 or absent(up{namespace="{{ .Release.Namespace }}",service="cravestream-api"})
+          for: 1m
+          labels: { severity: critical }
+          annotations:
+            summary: "No CraveStream API pod is being scraped"
+            runbook: "docs/RUNBOOK.md#api-down"
+        - alert: CraveStreamMongoDBDown
+          expr: max(mongodb_up{namespace="{{ .Release.Namespace }}"}) == 0
+          for: 1m
+          labels: { severity: critical }
+          annotations:
+            summary: "API pods cannot reach MongoDB (users get 503)"
+            runbook: "docs/RUNBOOK.md#mongodb-down"
+        - alert: CraveStreamPodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}"}[15m]) > 3
+          labels: { severity: warning }
+          annotations:
+            summary: "Pod {{ "{{" }} $labels.pod {{ "}}" }} restarted more than 3 times in 15m (CrashLoopBackOff?)"
+            runbook: "docs/RUNBOOK.md#crashloop"
+{{- end }}
+{{- end }}

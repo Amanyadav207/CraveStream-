@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import config from "../config.js";
+import { logger } from "../observability/logger.js";
 import * as s3 from "./storage/s3.driver.js";
 import * as imagekit from "./storage/imagekit.driver.js";
 
@@ -11,14 +12,13 @@ const driver = drivers[config.storage.driver];
 
 const uploadFile = async (buffer, mimeType) => {
     const fileName = `${randomUUID()}.mp4`;
-    console.log(`[Storage Service] (${config.storage.driver}) starting upload for ${fileName}`);
     const startTime = Date.now();
     try {
         const result = await driver.upload(buffer, fileName, mimeType);
-        console.log(`[Storage Service] upload ok for ${fileName} in ${Date.now() - startTime}ms`);
+        logger.info({ driver: config.storage.driver, fileName, ms: Date.now() - startTime }, "video uploaded");
         return result; // { url }
     } catch (error) {
-        console.error(`[Storage Service] upload failed for ${fileName} in ${Date.now() - startTime}ms:`, error.message);
+        logger.error({ driver: config.storage.driver, fileName, ms: Date.now() - startTime, err: error.message }, "video upload failed");
         throw error;
     }
 };
@@ -28,9 +28,9 @@ const uploadFile = async (buffer, mimeType) => {
 const initStorage = async () => {
     try {
         await driver.init?.();
-        console.log(`[Storage Service] driver "${config.storage.driver}" ready`);
+        logger.info({ driver: config.storage.driver }, "storage ready");
     } catch (error) {
-        console.error(`[Storage Service] driver "${config.storage.driver}" init failed:`, error.message);
+        logger.error({ driver: config.storage.driver, err: error.message }, "storage init failed");
     }
 };
 

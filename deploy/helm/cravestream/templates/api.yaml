@@ -105,7 +105,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: cravestream-api
-  labels: {{- include "cravestream.labels" . | nindent 4 }}
+  labels:
+    {{- include "cravestream.labels" . | nindent 4 }}
+    {{- include "cravestream.selector" (dict "component" "api") | nindent 4 }}
 spec:
   selector: {{- include "cravestream.selector" (dict "component" "api") | nindent 4 }}
   ports:

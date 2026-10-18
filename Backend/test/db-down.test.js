@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 process.env.DB_URL ??= "mongodb://127.0.0.1:27017/cravestream_test";
 process.env.JWT_SECRET ??= "test-secret";
+process.env.NODE_ENV ??= "test";
 
 const { default: request } = await import("supertest");
 const { default: app } = await import("../src/app.js");

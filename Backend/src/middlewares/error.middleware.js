@@ -15,7 +15,7 @@ const errorHandler = (err, req, res, next) => {
         return res.status(400).json({ message: "Invalid JSON body" });
     }
     const status = err.status || err.statusCode || 500;
-    console.error(`[Error] ${req.method} ${req.originalUrl} -> ${status}:`, err.message || err);
+    (req.log ?? console).error({ err, status }, "request failed");
     res.status(status).json({ message: status >= 500 ? "Server error" : err.message });
 };
 

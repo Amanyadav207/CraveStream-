@@ -23,7 +23,7 @@ mediaRoutes.get("/:key", async (req, res) => {
         if (object.ContentRange) res.set("Content-Range", object.ContentRange);
         // If storage drops mid-stream, abort the response instead of hanging.
         object.Body.on("error", (error) => {
-            console.error(`[Media] stream error for ${req.params.key}:`, error.message);
+            req.log.error({ key: req.params.key, err: error.message }, "media stream error");
             res.destroy(error);
         });
         object.Body.pipe(res);
@@ -34,7 +34,7 @@ mediaRoutes.get("/:key", async (req, res) => {
         if (error.$metadata?.httpStatusCode === 416) {
             return res.status(416).end();
         }
-        console.error(`[Media] storage error for ${req.params.key}:`, error.message);
+        req.log.error({ key: req.params.key, err: error.message }, "media storage error");
         res.status(502).json({ message: "Video storage is unavailable, please try again later" });
     }
 });

@@ -68,6 +68,10 @@ ingress:
 networkPolicy:
   enabled: true
 
+# Grafana dashboard, ServiceMonitor and SLO alert rules (needs kube-prometheus-stack).
+monitoring:
+  enabled: true
+
 backup:
   enabled: true
   schedule: "0 2 * * *"   # daily mongodump at 02:00

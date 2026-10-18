@@ -4,12 +4,13 @@ import config from './src/config.js';
 import app from './src/app.js';
 import connectDB from './src/db/db.js';
 import { initStorage } from './src/services/storage.service.js';
+import { logger } from './src/observability/logger.js';
 
 await connectDB();
 await initStorage();
 
 const server = app.listen(config.port, () => {
-    console.log(`server started on port ${config.port} (version ${config.appVersion}, commit ${config.gitSha})`);
+    logger.info({ port: config.port, commit: config.gitSha }, 'server started');
 });
 
 // Graceful shutdown: Kubernetes sends SIGTERM before killing a pod. Stop
@@ -18,15 +19,15 @@ let shuttingDown = false;
 const shutdown = (signal) => {
     if (shuttingDown) return;
     shuttingDown = true;
-    console.log(`${signal} received, shutting down gracefully`);
+    logger.info({ signal }, 'shutting down gracefully');
     const forceExit = setTimeout(() => {
-        console.error('forced exit after 10s');
+        logger.error('forced exit after 10s');
         process.exit(1);
     }, 10_000);
     forceExit.unref();
     server.close(async () => {
         await mongoose.disconnect();
-        console.log('shutdown complete');
+        logger.info('shutdown complete');
         process.exit(0);
     });
 };
