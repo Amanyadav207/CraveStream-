@@ -56,14 +56,18 @@ spec:
             tcpSocket: { port: s3 }
             periodSeconds: 20
           resources: {{- toYaml .Values.seaweedfs.resources | nindent 12 }}
-          securityContext: {{- include "cravestream.containerSecurity" (dict "readOnly" false) | nindent 12 }}
+          securityContext: {{- include "cravestream.containerSecurity" (dict "readOnly" true) | nindent 12 }}
           volumeMounts:
             - name: data
               mountPath: /data
             - name: s3-config
               mountPath: /etc/seaweedfs
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: s3-config
           secret:
             secretName: {{ .Values.existingSecret }}

@@ -57,10 +57,20 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
           resources: {{- toYaml .Values.mongo.resources | nindent 12 }}
-          securityContext: {{- include "cravestream.containerSecurity" (dict "readOnly" false) | nindent 12 }}
+          securityContext: {{- include "cravestream.containerSecurity" (dict "readOnly" true) | nindent 12 }}
+          # Read-only root fs; only the data volume and scratch dirs are writable.
           volumeMounts:
             - name: data
               mountPath: /data/db
+            - name: tmp
+              mountPath: /tmp
+            - name: configdb
+              mountPath: /data/configdb
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: configdb
+          emptyDir: {}
   volumeClaimTemplates:
     - metadata:
         name: data
