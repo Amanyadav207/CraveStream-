@@ -1,0 +1,17 @@
+Data persistence across pod restarts (helm upgrade to 57dff79e20a3 recreated mongo-0 and seaweedfs-0)
+
+$ kubectl -n cravestream get pods
+mongo-0       1/1  Running  0  48s   (recreated)
+seaweedfs-0   1/1  Running  0  23s   (recreated)
+
+$ curl -sk https://cravestream.localhost/api/user/login -d '{"email":"u@test.local",...}'   # user created BEFORE the restart
+{"message":"Login successful", ...}  [200]
+
+$ curl -sk -b cookie https://cravestream.localhost/api/food
+feed items after mongo restart: 1 ['Taco']
+
+$ curl -sk https://cravestream.localhost/api/media/<uploaded-before-restart>.mp4
+video after seaweedfs restart [200]
+
+Why it survives: both run as StatefulSets with volumeClaimTemplates; the PVCs
+(data-mongo-0, data-seaweedfs-0) are bound to PersistentVolumes that outlive the pods.
