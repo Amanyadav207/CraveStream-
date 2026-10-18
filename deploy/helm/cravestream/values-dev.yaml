@@ -5,13 +5,19 @@ global:
 ingress:
   host: dev.cravestream.localhost
 
+# Image tags are updated by CI (job "promote-dev") after a successful build;
+# Argo CD then deploys them automatically.
 api:
+  image:
+    tag: "54b368d4cabb"
   replicas: 2
   autoscaling:
     minReplicas: 2
     maxReplicas: 3
 
 frontend:
+  image:
+    tag: "54b368d4cabb"
   replicas: 1
   pdb:
     minAvailable: 0

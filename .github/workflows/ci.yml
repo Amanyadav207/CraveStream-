@@ -196,3 +196,31 @@ jobs:
           kubectl get pods -A -o wide
           kubectl -n cravestream describe pods | tail -80
           kubectl -n cravestream logs deploy/cravestream-api --tail=50 || true
+
+  promote-dev:
+    name: Promote to dev (GitOps commit)
+    # Only after every check passed, and only for pushes to the working branch.
+    needs: k8s-smoke
+    if: github.event_name == 'push' && github.ref == 'refs/heads/devops'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Set dev image tags to this commit
+        run: |
+          TAG="${GITHUB_SHA::12}"
+          sed -i -E "s/^(    tag: )\"[^\"]*\"/\1\"$TAG\"/" deploy/helm/cravestream/values-dev.yaml
+          git diff --stat
+      - name: Commit and push (Argo CD syncs the dev environment from this)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/helm/cravestream/values-dev.yaml
+          git diff --cached --quiet && { echo "already at this tag"; exit 0; }
+          git commit -m "deploy(dev): ${GITHUB_SHA::12} [skip ci]"
+          git pull --rebase origin "${{ github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"
+          echo "### Promoted \`${GITHUB_SHA::12}\` to dev" >> "$GITHUB_STEP_SUMMARY"
