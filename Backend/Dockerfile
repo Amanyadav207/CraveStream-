@@ -21,6 +21,14 @@ LABEL org.opencontainers.image.source="https://github.com/Amanyadav207/CraveStre
       org.opencontainers.image.revision="${GIT_SHA}" \
       org.opencontainers.image.version="${APP_VERSION}"
 
+# The app runs with plain "node"; package managers are not needed at runtime.
+# Removing them shrinks the attack surface (Trivy flagged HIGH CVEs in the
+# npm CLI bundled with the base image).
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* \
+           /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+ && apk upgrade --no-cache
+
 COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package.json server.js ./
 COPY --chown=node:node src ./src
