@@ -9,7 +9,7 @@ ingress:
 # Argo CD then deploys them automatically.
 api:
   image:
-    tag: "dff2a687c8f1"
+    tag: "cacefac0b443"
   replicas: 2
   autoscaling:
     minReplicas: 2
@@ -17,7 +17,7 @@ api:
 
 frontend:
   image:
-    tag: "dff2a687c8f1"
+    tag: "cacefac0b443"
   replicas: 1
   pdb:
     minAvailable: 0
