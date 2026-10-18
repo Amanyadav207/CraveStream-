@@ -4,7 +4,9 @@ import axios from 'axios';
 
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
+    // Same-origin "/api" by default: nginx (container) or the Vite proxy (dev)
+    // forwards it to the backend, so no API URL is baked into the image.
+    baseURL: import.meta.env.VITE_API_URL || '/api',
     withCredentials: true,
 });
 

@@ -1,11 +1,9 @@
 import React from 'react';
 import { X, Minus, Plus, Trash2 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { useNavigate } from 'react-router-dom';
 
 const CartSidebar = () => {
     const { isCartOpen, toggleCart, cart, updateQuantity, removeFromCart, cartTotal } = useCart();
-    const navigate = useNavigate();
 
     if (!isCartOpen) return null;
 

@@ -22,7 +22,7 @@ const Navbar = () => {
                 <UtensilsCrossed className="text-white w-5 h-5" />
             </div>
           <span className="text-2xl font-bold bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent">
-            Zomato
+            CraveStream
           </span>
         </Link>
         

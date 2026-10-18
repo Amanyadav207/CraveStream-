@@ -115,7 +115,7 @@ const PartnerDashboard = () => {
                 </div>
                 <div className="glass-card p-6 rounded-xl">
                     <h3 className="text-gray-400 mb-2">Active Items</h3>
-                    <p className="text-3xl font-bold">0</p>
+                    <p className="text-3xl font-bold">{foodItems.length}</p>
                 </div>
             </div>
 

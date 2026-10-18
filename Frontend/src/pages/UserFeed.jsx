@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, MessageCircle, Share2, DollarSign } from 'lucide-react';
 import api from '../api/axios';
-import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
 const UserFeed = () => {
     const [foodItems, setFoodItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const { addToCart } = useCart();
-    const containerRef = useRef(null);
 
     useEffect(() => {
         const fetchFood = async () => {

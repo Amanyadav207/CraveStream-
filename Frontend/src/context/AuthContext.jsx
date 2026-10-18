@@ -104,7 +104,7 @@ export const AuthProvider = ({ children }) => {
         try {
             // Optional: Call logout endpoint if backend has it
              await api.post('/user/logout'); 
-        } catch (e) {
+        } catch {
             // ignore error
         } finally {
             setUser(null);

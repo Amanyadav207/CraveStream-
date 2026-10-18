@@ -24,6 +24,8 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Context files export a provider plus its hook; that is fine for fast refresh.
+      'react-refresh/only-export-components': ['error', { allowExportNames: ['useAuth', 'useCart'] }],
     },
   },
 ])
