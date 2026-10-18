@@ -10,6 +10,12 @@ ports:
 providers:
   kubernetesIngress:
     enabled: true
+    # Publish an address in each Ingress's status so tools such as Argo CD
+    # report the Ingress as Healthy (kind has no cloud load balancer).
+    ingressEndpoint:
+      ip: 127.0.0.1
+    publishedService:
+      enabled: false
   kubernetesCRD:
     enabled: false
 ingressClass:

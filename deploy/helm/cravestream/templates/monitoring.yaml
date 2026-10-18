@@ -40,10 +40,12 @@ spec:
   groups:
     - name: cravestream-sli
       rules:
+        # "or vector(0)": with no 5xx at all the numerator is empty, which would
+        # otherwise make the ratio (and every burn-rate alert) return no data.
         {{- range $w := list "5m" "30m" "1h" "6h" }}
         - record: cravestream:error_ratio:rate{{ $w }}
           expr: |
-            sum(rate(http_requests_total{namespace="{{ $.Release.Namespace }}",status_code=~"5.."}[{{ $w }}]))
+            (sum(rate(http_requests_total{namespace="{{ $.Release.Namespace }}",status_code=~"5.."}[{{ $w }}])) or vector(0))
             / clamp_min(sum(rate(http_requests_total{namespace="{{ $.Release.Namespace }}"}[{{ $w }}])), 1e-9)
         {{- end }}
     - name: cravestream-alerts
